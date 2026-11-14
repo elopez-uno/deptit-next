@@ -1,0 +1,40 @@
+# DEPTIT NEXT - proxy del servidor de PRODUCCION con certificado AUTOMATICO (ACME / Let's Encrypt).
+#
+# Requiere en Docker/.env:  DEPTIT_PROXY_MODE=produccion-acme
+#                           DEPTIT_PROXY_DOMAIN=<dominio publico que resuelve al servidor>
+#                           DEPTIT_ACME_EMAIL=<correo del responsable>
+# y salida a Internet + puertos 80/443 alcanzables desde Internet (validacion HTTP-01/TLS-ALPN-01).
+# Los certificados se guardan en el volumen caddy-data y se renuevan solos.
+#
+# Si la institucion exige certificado propio, usar Caddyfile.produccion (tls manual; sin ACME).
+# Todo lo demas (Host preservado, XFF, 52 MiB, ~120 s, sin cache en /api/*, HSTS) es identico.
+{
+	admin off
+	persist_config off
+	email {$DEPTIT_ACME_EMAIL}
+	servers {
+		strict_sni_host on
+	}
+	log default {
+		output stderr
+		format console
+		level INFO
+	}
+}
+
+{$DEPTIT_PROXY_DOMAIN} {
+	header -Server
+	header Strict-Transport-Security "max-age=31536000"
+	header /api/* Cache-Control "no-store"
+
+	request_body {
+		max_size 52MiB
+	}
+
+	reverse_proxy frontend:3000 {
+		header_up -X-Deptit-Client-Ip
+		transport http {
+			response_header_timeout 120s
+		}
+	}
+}

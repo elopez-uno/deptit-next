@@ -1,0 +1,19 @@
+﻿fastapi==0.147.0
+uvicorn==0.54.0
+psycopg[binary,pool]==3.3.6
+psycopg-binary==3.3.6
+psycopg-pool==3.3.3
+python-dotenv==1.2.4
+tzdata==2026.5
+# Docentes: carga rapida simple (parser pandas) y modelo Excel (openpyxl), versiones del runtime certificado.
+numpy==2.4.6
+pandas==3.0.3
+openpyxl==3.1.5
+et-xmlfile==2.0.0
+python-dateutil==2.9.0.post0
+six==1.17.0
+# Disposiciones: Word (.docx) desde la plantilla institucional, version del runtime certificado (constraints B11).
+python-docx==1.2.0
+lxml==6.1.1
+# Resoluciones y respaldos: PDF por multipart/form-data (D-AK1), version del runtime certificado (constraints B11).
+python-multipart==0.0.30

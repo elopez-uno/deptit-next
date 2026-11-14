@@ -1,0 +1,21 @@
+{
+ "archivo": "0001_baseline_schema.sql",
+ "contiene_datos": false,
+ "esquema_sha256": "02d1e6edcd77a1922d03f2ee820af6f3cce7ea69780607cb476c6718f7e1e0e1",
+ "format_version": 1,
+ "generado_utc": "2026-11-03T23:56:06Z",
+ "indices": 193,
+ "kind": "deptit-next-schema-baseline",
+ "opciones": [
+  "--schema-only",
+  "--no-owner",
+  "--no-privileges"
+ ],
+ "origen": "deptit_next_dev",
+ "pg_dump_version": "pg_dump (PostgreSQL) 18.4",
+ "restricciones": 358,
+ "secuencias": 55,
+ "sha256": "7d16c972e01eb092871a2756a6b6d198cb5ffeea9133d8b9b73287599ed84eb2",
+ "size": 127947,
+ "tablas": 58
+}

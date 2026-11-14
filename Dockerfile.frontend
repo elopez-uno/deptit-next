@@ -1,0 +1,70 @@
+# DEPTIT NEXT - imagen del frontend (Next.js 16 sobre Node 24).
+#
+# Build (el contexto y las rutas las fija Docker/compose.yaml):
+#   cd Docker && docker compose build frontend
+#
+# Targets:
+#   build   : npm ci + next build. REQUIERE salida a Internet: next/font/google descarga las
+#             fuentes durante el build (y npm ci baja node_modules).
+#   runtime : next start -H 0.0.0.0 -p 3000 (el unico que le habla es el proxy Caddy).
+#   tests   : vitest + jsdom, componentes (perfil "tools" de compose; sin base de datos).
+#
+# Sin output:"standalone" (el next.config.ts del proyecto no lo define): la imagen runtime lleva
+# node_modules completo y sirve el build con next start, igual que la instalacion del runbook.
+
+# ----------------------------------------------------------------------------- build
+FROM node:24-slim AS build
+
+ENV NEXT_TELEMETRY_DISABLED=1
+WORKDIR /app/frontend
+
+# Dependencias primero (layer de cache propio): npm ci exige package-lock.json exacto.
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+COPY frontend/ ./
+# tests/ NO entra al build de produccion: next build type-chequea todo lo presente y varios tests
+# dependen de fixtures PRIVADOS excluidos de la entrega (tests/fixtures/*.json; ver README §7).
+# El target "tests" si los copia (vitest corre con lo que haya).
+RUN rm -rf tests && npm run build
+
+# ----------------------------------------------------------------------------- tests
+FROM node:24-slim AS tests
+
+ENV NEXT_TELEMETRY_DISABLED=1
+WORKDIR /app/frontend
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+
+CMD ["npx", "vitest", "run"]
+
+# ----------------------------------------------------------------------------- runtime
+FROM node:24-slim AS runtime
+
+# TZ: fechas SSR en la zona institucional (compose lo inyecta tambien; imagen preparada).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1
+
+WORKDIR /app/frontend
+
+# Solo el artefacto del build + node_modules. next start relee el next.config.ts al arrancar
+# (cabeceras de 6A-B1): su import de src/lib/security-headers.ts debe existir en la imagen.
+COPY --from=build --chown=node:node /app/frontend/package.json /app/frontend/package-lock.json ./
+COPY --from=build --chown=node:node /app/frontend/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/frontend/.next ./.next
+COPY --from=build --chown=node:node /app/frontend/next.config.ts ./next.config.ts
+COPY --from=build --chown=node:node /app/frontend/tsconfig.json ./tsconfig.json
+COPY --from=build --chown=node:node /app/frontend/src/lib/security-headers.ts ./src/lib/security-headers.ts
+
+USER node
+EXPOSE 3000
+
+# Escucha en todas las interfaces DENTRO de la red interna de compose: el unico cliente es el
+# proxy (el BFF reenvia al backend por esa misma red). No hay puertos publicados en compose.
+CMD ["node", "node_modules/next/dist/bin/next", "start", "-H", "0.0.0.0", "-p", "3000"]

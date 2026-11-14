@@ -1,0 +1,39 @@
+# DEPTIT NEXT - reglas de git de ESTE repositorio (raiz = Docker/).
+# Nunca versionar secretos, certificados generados ni artefactos locales.
+
+# Secretos / entorno
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+pgpass.conf
+.pgpass
+env/*.env
+
+# Certificados generados (CA, TLS interno del PostgreSQL y proxy): NUNCA a git.
+# Se generan por servidor con certs/generar-certificados-db.sh (ver certs/README.md).
+certs/db/
+certs/proxy/
+
+# SQL generado con verificadores de credenciales
+migration/db_setup/*.generated.sql
+
+# Fixtures de frontend generados desde la base real (datos institucionales): no versionar
+frontend/tests/fixtures/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Node
+node_modules/
+frontend/.next/
+frontend/next-env.d.ts
+
+# Artefactos y documentos generados en desarrollo
+storage/
+dist/
+var/

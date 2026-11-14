@@ -1,0 +1,75 @@
+# DEPTIT NEXT - imagen del backend (FastAPI) y de las herramientas operativas (python -m operacion).
+#
+# Build (el contexto y las rutas las fija Docker/compose.yaml):
+#   cd Docker && docker compose build backend
+#
+# Targets:
+#   runtime : uvicorn (serve.py: 1 worker, sin proxy-headers) y la CLI operativa del runbook
+#             (backup-set / verify-* / restore drills / bootstrap-superadmin / health) con
+#             pg_dump / pg_restore / psql / createdb / dropdb de PostgreSQL 18 (repo PGDG: el
+#             servidor es postgres:18 y pg_dump no puede ser de una version menor).
+#   tests   : suite pytest (perfil "tools" de compose; ver advertencia sobre fixtures privados).
+#
+# Requiere salida a Internet durante el build (PyPI + apt.postgresql.org).
+
+FROM python:3.14-slim AS runtime
+
+# tzdata: settings.apply_timezone fija TZ=America/Argentina/Buenos_Aires con time.tzset(); sin
+# /usr/share/zoneinfo la zona no se aplica y, fuera de desarrollo, el backend se niega a arrancar.
+# ca-certificates + curl: TLS y descarga de la clave del repo PGDG.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl tzdata \
+    && install -d -m 0755 /usr/share/postgresql-common/pgdg \
+    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+        -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(. /etc/os-release && echo "$VERSION_CODENAME")-pgdg main" \
+        > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-client-18 \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+# Dependencias primero (layer de cache propio: requirements.txt cambia poco).
+COPY backend/requirements.txt ./backend/requirements.txt
+RUN pip install -r backend/requirements.txt
+
+# Codigo: REPO_DIR=/app (settings.py). migration/schema lo usan la CLI operativa (esquema.py).
+COPY backend/ ./backend/
+COPY migration/ ./migration/
+
+# Usuario sin privilegios. Los volumenes (documents, backups) heredan la propiedad de estos
+# directorios la primera vez que se montan: el backend necesita R/W en documents y solo lectura
+# en backups; el contenedor ops necesita R/W en backups (runbook §2.7 y §4).
+RUN useradd --system --uid 700 --home /app --no-create-home deptit \
+    && mkdir -p /var/lib/deptit-next/documents /var/backups/deptit-next \
+    && chown -R deptit:deptit /var/lib/deptit-next /var/backups/deptit-next
+
+USER deptit
+WORKDIR /app/backend
+
+EXPOSE 8001
+
+# serve.py valida TODA la configuracion (settings.load) ANTES de levantar uvicorn: una variable
+# invalida termina el contenedor en lugar de arrancar una instancia mal configurada (fail-closed).
+CMD ["python", "serve.py"]
+
+# ---------------------------------------------------------------------------- tests (perfil "tools")
+# ADVERTENCIA (README_ENTREGA_SISTEMAS.txt): parte de la suite depende de fixtures privados
+# excluidos de la entrega; conftest usa repos falsos sin base, por lo que los tests que si
+# dependen de esos fixtures fallan sin ser un gate bloqueante.
+FROM runtime AS tests
+
+USER root
+RUN pip install -r /app/backend/requirements-dev.txt
+
+USER deptit
+RUN mkdir -p /tmp/deptit-documents /tmp/deptit-backups
+WORKDIR /app/backend
+
+CMD ["python", "-m", "pytest", "-q"]

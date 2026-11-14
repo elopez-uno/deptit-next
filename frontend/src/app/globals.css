@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f4f6fa;
+  --foreground: #0f1b2d;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-brand-950: #071427;
+  --color-brand-900: #0b1f3a;
+  --color-brand-800: #13305a;
+  --color-brand-700: #1b4380;
+  --color-brand-600: #2156a8;
+  --color-brand-500: #2f6fd6;
+  --color-brand-100: #e3ecfb;
+  --color-brand-50: #f1f5fd;
+  --color-accent-500: #14b8a6;
+  /* 6A-B1: pila de fuentes del sistema (sin descarga de Google Fonts en el build). */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}

@@ -1,0 +1,4 @@
+# DEPTIT NEXT - los archivos .env de ESTE directorio son SECRETOS: nunca entran a git.
+# (La raiz del proyecto ya los ignora tambien: doble barrera, vale la que este mas cerca.)
+*.env
+!*.example

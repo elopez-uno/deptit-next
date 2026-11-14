@@ -1,0 +1,277 @@
+# DEPTIT NEXT — stack Docker (guía completa: Docker/README.md).
+#
+#   navegador ──> proxy (Caddy, único público) ──> frontend (Next.js :3000)
+#                                                    └──> backend (FastAPI :8001, 1 worker)
+#                                                             └──> db (PostgreSQL 18, TLS interno)
+#
+# * Infraestructura (sin secretos): Docker/.env junto a este archivo (plantilla: Docker/.env.example).
+# * Secretos: Docker/env/{db,backend,ops}.env (0600). DENTRO del proyecto pero NUNCA en git:
+#   .gitignore los excluye (y los dockerignore los sacan del contexto de build).
+# * Red privada interna con IPs fijas: el backend solo acepta la cabecera de IP de cliente del
+#   frontend de confianza (DEPTIT_TRUSTED_FRONTEND_IPS se inyecta desde .env).
+# * El contenedor `ops` (perfil "tools") ejecuta las herramientas operativas del runbook
+#   (backup-set / verify-* / restore drills / bootstrap-superadmin / health) con pg_dump 18.
+#
+# Uso diario:        docker compose up -d        (db + backend + frontend + proxy)
+# Herramientas:      docker compose --profile tools run --rm ops python -m operacion <comando>
+
+name: deptit-next
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "10"
+
+services:
+  # -------------------------------------------------------------------------------- PostgreSQL 18
+  db:
+    image: postgres:18
+    restart: unless-stopped
+    # Secretos del clúster y del entorno (roles/base/contraseñas): db.env.
+    env_file: ${DEPTIT_ENV_DIR:-./env}/db.env
+    environment:
+      # Entorno y base en UN solo lugar (Docker/.env); el init los exige y los valida.
+      DEPTIT_ENTORNO: ${DEPTIT_ENTORNO:?falta DEPTIT_ENTORNO en Docker/.env}
+      DEPTIT_DB_NAME: ${DEPTIT_DB_NAME:?falta DEPTIT_DB_NAME en Docker/.env}
+    # TLS interno obligatorio: el backend exige DEPTIT_DB_SSLMODE=require/verify-* fuera de
+    # desarrollo para hosts no-loopback (settings.py), y la red Docker no es loopback.
+    # Certificados: Docker/certs/db (generar con certs/generar-certificados-db.sh).
+    command:
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/etc/deptit-next/db-tls/server.crt
+      - -c
+      - ssl_key_file=/etc/deptit-next/db-tls/server.key
+    volumes:
+      # postgres:18 CAMBIO IMPORTANTE: el VOLUME de la imagen es /var/lib/postgresql (PGDATA pasó a
+      # ser /var/lib/postgresql/18/docker, gestionado por la imagen para pg_upgrade). Montar en
+      # /var/lib/postgresql/data NO persiste los datos. docker volume inspect deptit-next_db-data
+      # muestra la ruta en el host.
+      - db-data:/var/lib/postgresql
+      # Mismo directorio que monta el backend (la CA): la key debe ser 0600 y del uid 999 (postgres).
+      - ./certs/db:/etc/deptit-next/db-tls:ro
+      # Inicialización SOLO la primera vez que se crea el volumen de datos (imagen postgres):
+      # roles del entorno → base → esquema certificado → grants. Guardas fail-closed en cada paso.
+      - ./db/initdb:/docker-entrypoint-initdb.d:ro
+      - ./migration/schema:/schema:ro
+    # Healthy cuando el clúster responde Y la base del entorno existe (los scripts de init
+    # todavía no terminaron): evita que el backend arranque contra una base a medio crear.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d postgres && psql -U $$POSTGRES_USER -d postgres -tAc \"SELECT 1 FROM pg_database WHERE datname='$$DEPTIT_DB_NAME'\" | grep -q 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    security_opt: ["no-new-privileges:true"]
+    logging: *default-logging
+    networks:
+      deptit:
+        ipv4_address: ${DEPTIT_DB_IP:-172.28.0.2}
+
+  # ------------------------------------------------------------------------- Backend (FastAPI)
+  backend:
+    build:
+      # Contexto: esta carpeta (Docker/): los Dockerfiles copian backend/, frontend/ y migration/.
+      context: .
+      dockerfile: Dockerfile.backend
+      target: runtime
+    image: deptit-next-backend:${DEPTIT_IMAGE_TAG:-local}
+    restart: unless-stopped
+    env_file: ${DEPTIT_ENV_DIR:-./env}/backend.env
+    environment:
+      # Topología de red (vive junto a la subnet en .env, NO en el archivo de secretos):
+      # el backend solo acepta x-deptit-client-ip desde el frontend de confianza.
+      DEPTIT_TRUSTED_FRONTEND_IPS: ${DEPTIT_FRONTEND_IP:-172.28.0.4}
+      # Entorno y base en UN solo lugar (Docker/.env): settings.load exige la combinación exacta.
+      DEPTIT_ENTORNO: ${DEPTIT_ENTORNO:?falta DEPTIT_ENTORNO en Docker/.env}
+      DEPTIT_DB_NAME: ${DEPTIT_DB_NAME:?falta DEPTIT_DB_NAME en Docker/.env}
+    volumes:
+      # Raíz documental persistente (Disposiciones; runbook §2.7).
+      - documents:/var/lib/deptit-next/documents
+      # Evidencia de backups: el gate de "Crear período" SOLO lee manifests (B11) → read-only.
+      - backups:/var/backups/deptit-next:ro
+      # CA del contenedor db: habilita DEPTIT_DB_SSLMODE=verify-full (ver env/backend.*.env.example).
+      - ./certs/db:/etc/deptit-next/db-tls:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    # Healthy cuando /health responde 200: la guarda de identidad (base/rol exactos) corre DENTRO
+    # del endpoint (una base o rol inesperado da 503 y el contenedor se marca unhealthy).
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('DEPTIT_BACKEND_PORT', '8001') + '/health', timeout=5)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    security_opt: ["no-new-privileges:true"]
+    logging: *default-logging
+    networks:
+      deptit:
+        ipv4_address: ${DEPTIT_BACKEND_IP:-172.28.0.3}
+
+  # ------------------------------------------------------------------------ Frontend (Next.js)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      target: runtime
+    image: deptit-next-frontend:${DEPTIT_IMAGE_TAG:-local}
+    restart: unless-stopped
+    environment:
+      # BFF: el navegador solo habla con Next.js; Next.js alcanza a FastAPI por la red interna.
+      DEPTIT_BACKEND_URL: ${DEPTIT_BACKEND_URL:-http://backend:8001}
+      # Caddy (proxy propio delante) fija X-Forwarded-For: el BFF deriva la IP real del cliente
+      # (6A-B4). 0 = no se deriva nada y rige solo el límite por cuenta.
+      DEPTIT_TRUSTED_PROXY_HOPS: ${DEPTIT_TRUSTED_PROXY_HOPS:-1}
+      # Fechas SSR en la zona institucional (el backend la fija y verifica él mismo, settings.py).
+      TZ: ${DEPTIT_TIMEZONE:-America/Argentina/Buenos_Aires}
+    # Healthy cuando /api/backend-health responde 200: la ruta reexpone /health del backend
+    # (502/503 si FastAPI no responde), así el proxy solo arranca con la cadena completa OK.
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/backend-health').then(r => { process.exit(r.ok ? 0 : 1) }).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    depends_on:
+      backend:
+        condition: service_healthy
+    security_opt: ["no-new-privileges:true"]
+    logging: *default-logging
+    networks:
+      deptit:
+        ipv4_address: ${DEPTIT_FRONTEND_IP:-172.28.0.4}
+
+  # ------------------------------------------------------------------- Reverse proxy (Caddy)
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      # Único punto público del stack (runbook §1: FastAPI y Next.js nunca se exponen).
+      - "${DEPTIT_HTTP_PORT:-80}:80"
+      - "${DEPTIT_HTTPS_PORT:-443}:443"
+    environment:
+      DEPTIT_PROXY_DOMAIN: ${DEPTIT_PROXY_DOMAIN:-}
+      DEPTIT_ACME_EMAIL: ${DEPTIT_ACME_EMAIL:-}
+    volumes:
+      # Desarrollo: HTTP plano (entorno=desarrollo del proyecto). Producción: HTTPS obligatorio.
+      #   desarrollo       -> Caddyfile.desarrollo        (HTTP :80)
+      #   produccion       -> Caddyfile.produccion        (HTTPS, certificado institucional en certs/proxy/)
+      #   produccion-acme  -> Caddyfile.produccion-acme   (HTTPS, ACME p.ej. Let's Encrypt: dominio + email)
+      - ./proxy/Caddyfile.${DEPTIT_PROXY_MODE:-desarrollo}:/etc/caddy/Caddyfile:ro
+      # Certificado institucional (produccion): fullchain.pem + privkey.pem.
+      - ./certs/proxy:/etc/caddy/tls:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      frontend:
+        condition: service_healthy
+    security_opt: ["no-new-privileges:true"]
+    logging: *default-logging
+    networks:
+      deptit:
+        ipv4_address: ${DEPTIT_PROXY_IP:-172.28.0.5}
+
+  # ---------------------------------------------------------------- Herramientas operativas
+  # Contenedor efímero del perfil "tools": NO corre como servicio. Ejecuta los comandos del
+  # runbook contra el mismo stack (misma imagen del backend, con pg_dump/pg_restore/psql 18):
+  #   docker compose --profile tools run --rm ops python -m operacion health \
+  #     --backend-url http://backend:8001/health --frontend-url http://frontend:3000/api/backend-health
+  #   docker compose --profile tools run --rm ops python -m operacion backup-set
+  #   docker compose --profile tools run --rm ops python -m operacion bootstrap-superadmin \
+  #     --email <email> --execute
+  ops:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      target: runtime
+    image: deptit-next-backend:${DEPTIT_IMAGE_TAG:-local}
+    profiles: ["tools"]
+    env_file:
+      - ${DEPTIT_ENV_DIR:-./env}/backend.env
+      - ${DEPTIT_ENV_DIR:-./env}/ops.env
+    environment:
+      DEPTIT_TRUSTED_FRONTEND_IPS: ${DEPTIT_FRONTEND_IP:-172.28.0.4}
+      DEPTIT_ENTORNO: ${DEPTIT_ENTORNO:?falta DEPTIT_ENTORNO en Docker/.env}
+      DEPTIT_DB_NAME: ${DEPTIT_DB_NAME:?falta DEPTIT_DB_NAME en Docker/.env}
+    volumes:
+      - documents:/var/lib/deptit-next/documents
+      - backups:/var/backups/deptit-next
+      - ./certs/db:/etc/deptit-next/db-tls:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    security_opt: ["no-new-privileges:true"]
+    logging: *default-logging
+    # IP dinamica: contenedor efimero, no necesita una fija (conecta por nombre: db/backend).
+    networks:
+      deptit:
+
+  # ----------------------------------------------------------------------------- Tests (tools)
+  # Suite de backend (pytest). ADVERTENCIA (README_ENTREGA_SISTEMAS.txt): parte de la suite
+  # depende de fixtures privados excluidos de la entrega; no es un gate bloqueante.
+  # Se fuerza entorno=desarrollo + base deptit_next_dev: en el servidor productivo no existe
+  # esa base y los tests que necesitan base fallan sin tocar NADA de producción.
+  backend-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+      target: tests
+    image: deptit-next-backend-tests:${DEPTIT_IMAGE_TAG:-local}
+    profiles: ["tools"]
+    env_file: ${DEPTIT_ENV_DIR:-./env}/backend.env
+    environment:
+      DEPTIT_ENTORNO: desarrollo
+      DEPTIT_DB_HOST: db
+      DEPTIT_DB_PORT: "5432"
+      DEPTIT_DB_NAME: deptit_next_dev
+      DEPTIT_DB_USER: deptit_next_app
+      DEPTIT_DB_SSLMODE: require
+      DEPTIT_EXPECTED_DATABASE: deptit_next_dev
+      DEPTIT_EXPECTED_DB_USER: deptit_next_app
+      DEPTIT_DOCUMENTS_DIR: /tmp/deptit-documents
+      DEPTIT_BACKEND_HOST: 127.0.0.1
+      DEPTIT_BACKEND_PORT: "8001"
+      DEPTIT_TRUSTED_FRONTEND_IPS: 127.0.0.1
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["python", "-m", "pytest", "-q"]
+    security_opt: ["no-new-privileges:true"]
+    networks:
+      deptit:
+
+  # Tests de componentes del frontend (vitest + jsdom; sin base de datos).
+  frontend-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      target: tests
+    image: deptit-next-frontend-tests:${DEPTIT_IMAGE_TAG:-local}
+    profiles: ["tools"]
+    command: ["npx", "vitest", "run"]
+    security_opt: ["no-new-privileges:true"]
+    networks:
+      deptit:
+
+# ------------------------------------------------------------------------------- red + volúmenes
+networks:
+  # Subnet privada fija (ajustable en .env).  Las IPs estáticas de db/backend/frontend/proxy deben
+  # quedar dentro; si cambia DEPTIT_DB_IP, regenerar el certificado del db (SAN con esa IP).
+  deptit:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${DEPTIT_SUBNET:-172.28.0.0/24}
+
+volumes:
+  # Datos de PostgreSQL (docker volume inspect deptit-next_db-data muestra la ruta en el host).
+  db-data:
+  # DEPTIT_DOCUMENTS_DIR: raíz documental persistente (Word de Disposiciones y plantillas).
+  documents:
+  # DEPTIT_BACKUP_DIR: backups verificados (base + documents/ + sets/; runbook §4).
+  backups:
+  caddy-data:
+  caddy-config:

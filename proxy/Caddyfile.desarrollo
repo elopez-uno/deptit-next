@@ -1,0 +1,41 @@
+# DEPTIT NEXT - proxy del servidor de DESARROLLO (HTTP plano, sin TLS).
+#
+#   navegador --HTTP :80--> Caddy --> next start :3000 --> FastAPI :8001 --> PostgreSQL :5432 (TLS interno)
+#
+# * Solo se publica el puerto 80 (compose: el resto de los servicios NO publica puertos).
+# * Coincide con DEPTIT_ENTORNO=desarrollo: sin HSTS y sin redireccion a HTTPS.
+# * Host se PRESERVA (sameOrigin() del BFF compara Origin con Host).
+# * X-Forwarded-For: Caddy no confia en ningun proxy anterior, asi que lo REEMPLAZA por la IP real del
+#   cliente; el BFF la toma con DEPTIT_TRUSTED_PROXY_HOPS=1 (entrada contada desde la derecha).
+# * El encabezado interno X-Deptit-Client-Ip lo construye SOLO el BFF: si el cliente lo manda, se borra.
+# * Limites alineados al modelo de 6A-B4: body ~52 MiB, ~120 s de espera de respuesta del upstream.
+# * Sin cache en /api/* (datos autenticados y sensibles).
+# * Rate limit de /api/auth/login: Caddy OSS no lo trae; lo aplica el backend (por cuenta y por IP real,
+#   con DEPTIT_TRUSTED_PROXY_HOPS=1) y ademas el BFF. Ver Docker/README.md.
+{
+	admin off
+	persist_config off
+	auto_https off
+	log default {
+		output stderr
+		format console
+		level INFO
+	}
+}
+
+:80 {
+	header -Server
+	header /api/* Cache-Control "no-store"
+
+	request_body {
+		max_size 52MiB
+	}
+
+	reverse_proxy frontend:3000 {
+		# El cliente jamas aporta la cabecera interna que el backend confia recibir del frontend.
+		header_up -X-Deptit-Client-Ip
+		transport http {
+			response_header_timeout 120s
+		}
+	}
+}

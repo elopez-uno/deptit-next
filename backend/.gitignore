@@ -1,0 +1,9 @@
+# Secretos
+.env
+.env.*
+!.env.example
+
+# Entorno virtual y cache
+.venv/
+__pycache__/
+*.py[cod]

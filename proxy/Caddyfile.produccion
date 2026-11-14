@@ -1,0 +1,49 @@
+# DEPTIT NEXT - proxy del servidor de PRODUCCION con CERTIFICADO INSTITUCIONAL (TLS manual).
+#
+# Requiere en Docker/.env:  DEPTIT_PROXY_MODE=produccion  y  DEPTIT_PROXY_DOMAIN=<dominio publico>
+# y en Docker/certs/proxy:   fullchain.pem  +  privkey.pem  (certificado de la universidad)
+#
+#   navegador --HTTPS :443--> Caddy --> next start :3000 --> FastAPI :8001 --> PostgreSQL :5432 (TLS interno)
+#
+# * HTTPS obligatorio: el :80 solo redirige a :443; TLS 1.2+ (default de Caddy).
+# * Host se PRESERVA (sameOrigin() del BFF compara Origin con Host); el dominio del sitio se toma de
+#   DEPTIT_PROXY_DOMAIN (si falta, Caddy NO arranca: fail-closed).
+# * Host distinto del SNI recibe 421 (strict_sni_host), sin responder como sitio por defecto.
+# * X-Forwarded-For: se REEMPLAZA por la IP real del cliente (Caddy no confia en proxies anteriores);
+#   el BFF la toma con DEPTIT_TRUSTED_PROXY_HOPS=1.
+# * El encabezado interno X-Deptit-Client-Ip se borra si lo manda el cliente (solo lo emite el BFF).
+# * Limites de 6A-B4: body ~52 MiB, ~120 s de espera de respuesta del upstream, sin cache en /api/*.
+# * HSTS: se activa aqui porque el certificado institucional ya esta validado; max-age 1 ano SIN
+#   includeSubDomains (no fijar subdominios ajenos al despliegue).
+# * Rate limit de /api/auth/login: Caddy OSS no lo trae; lo aplica el backend por cuenta y por IP real.
+{
+	admin off
+	persist_config off
+	servers {
+		strict_sni_host on
+	}
+	log default {
+		output stderr
+		format console
+		level INFO
+	}
+}
+
+{$DEPTIT_PROXY_DOMAIN} {
+	tls /etc/caddy/tls/fullchain.pem /etc/caddy/tls/privkey.pem
+
+	header -Server
+	header Strict-Transport-Security "max-age=31536000"
+	header /api/* Cache-Control "no-store"
+
+	request_body {
+		max_size 52MiB
+	}
+
+	reverse_proxy frontend:3000 {
+		header_up -X-Deptit-Client-Ip
+		transport http {
+			response_header_timeout 120s
+		}
+	}
+}

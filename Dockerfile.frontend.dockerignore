@@ -1,0 +1,49 @@
+# Dockerignore ESPECIFICO de Docker/Dockerfile.frontend (toma precedencia sobre el .dockerignore
+# del contexto). Contexto = esta carpeta (Docker/): las rutas son relativas a Docker/.
+# El build del frontend SOLO necesita frontend/: todo lo demas no viaja al daemon.
+
+# Control de versiones y meta
+.git
+.gitignore
+.gitattributes
+
+# El resto de la app (esta imagen es solo frontend) y lo que no se usa en la imagen
+backend
+migration
+docs
+ops
+
+# Recursos que se montan en runtime (o no aplican al build): NUNCA al daemon.
+# env/ incluye los secretos reales (db.env/backend.env/ops.env) y certs/ las claves TLS.
+db
+proxy
+certs
+env
+
+# Secretos y entorno
+**/.env
+**/.env.*
+**/.pgpass
+**/pgpass.conf
+**/*.pem
+**/*.key
+
+# Artefactos y datos locales del desarrollo
+storage
+dist
+var
+reference_fix02
+docs/audit
+ops/run
+ops/logs
+
+# Node (por si quedo un node_modules/.next de desarrollo local en el contexto)
+**/node_modules
+frontend/.next
+frontend/next-env.d.ts
+
+# Python
+**/__pycache__
+**/*.py[cod]
+**/.venv
+**/venv
