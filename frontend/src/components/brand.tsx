@@ -1,11 +1,23 @@
-export function BrandMark({ className = "h-10 w-10 text-lg" }: { className?: string }) {
+import Image from "next/image";
+
+// Logo institucional de la Universidad Nacional del Oeste (PNG oficial 297x102, azul #009cd1, fondo blanco).
+// Sobre superficies oscuras debe ir dentro de una tarjeta/claro para conservar el contraste del original.
+export function UnoLogo({
+  className = "h-auto w-[132px]",
+  alt = "Universidad Nacional del Oeste",
+}: {
+  className?: string;
+  alt?: string;
+}) {
   return (
-    <div
-      className={`${className} grid place-items-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-800 text-white shadow-lg shadow-brand-900/30`}
-      aria-hidden="true"
-    >
-      <span className="font-bold tracking-tight">D</span>
-    </div>
+    <Image
+      src="/uno-logo-web.png"
+      alt={alt}
+      width={297}
+      height={102}
+      sizes="(max-width: 768px) 180px, 200px"
+      className={className}
+    />
   );
 }
 

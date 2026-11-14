@@ -1,5 +1,6 @@
-// 6A-B4 (R-B3-10): antes del login el branding es neutro (ninguna universidad); dentro del sistema el encabezado es la
-// institución ACTIVA que entrega el backend y se actualiza al cambiar de contexto.
+// 6A-B4 (R-B3-10, actualizado): la instalación pertenece a la Universidad Nacional del Oeste, por lo que el login y la
+// metadata llevan el branding institucional (nombre y logo). Dentro del sistema el encabezado es la institución ACTIVA
+// que entrega el backend y se actualiza al cambiar de contexto.
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { Session } from "@/lib/auth";
@@ -53,11 +54,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test("login y metadata neutros: ninguna universidad antes del login", () => {
-  expect(metadata.title).toBe("DEPTIT — Gestión académica");
+test("login y metadata con branding institucional UNO", () => {
+  expect(metadata.title).toBe("DEPTIT NEXT — Universidad Nacional del Oeste");
+  expect(metadata.description).toContain(UNO);
   render(<LoginPage />);
-  expect(screen.getByText("DEPTIT — Gestión académica")).toBeTruthy();
-  expect(document.body.textContent).not.toMatch(/Universidad/);
+  // El login muestra el nombre institucional (el logo se expone por alt) y el nombre del sistema.
+  expect(screen.getAllByText(new RegExp(UNO)).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/DEPTIT NEXT/).length).toBeGreaterThan(0);
+  expect(screen.getAllByAltText(UNO).length).toBeGreaterThan(0);
 });
 
 test("encabezado = institución activa; UNO → Prueba → UNO sin arrastre; sin institución activa, ningún nombre", async () => {

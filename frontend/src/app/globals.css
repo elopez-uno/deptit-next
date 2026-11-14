@@ -1,29 +1,45 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4f6fa;
-  --foreground: #0f1b2d;
+  --background: #f2f5f9;
+  --foreground: #0b1c29;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-brand-950: #071427;
-  --color-brand-900: #0b1f3a;
-  --color-brand-800: #13305a;
-  --color-brand-700: #1b4380;
-  --color-brand-600: #2156a8;
-  --color-brand-500: #2f6fd6;
-  --color-brand-100: #e3ecfb;
-  --color-brand-50: #f1f5fd;
-  --color-accent-500: #14b8a6;
+
+  /* Paleta institucional UNO: escala derivada del azul oficial del logo (#009cd1).
+     500 es el azul del logo (acentos y detalles); desde 600 la escala es accesible (AA) sobre blanco
+     para texto, enlaces y botones. */
+  --color-brand-50: #ecf8fd;
+  --color-brand-100: #d2eefa;
+  --color-brand-200: #a7ddf3;
+  --color-brand-300: #6ec7e9;
+  --color-brand-400: #35afdc;
+  --color-brand-500: #009cd1;
+  --color-brand-600: #007aa7;
+  --color-brand-700: #00648a;
+  --color-brand-800: #004f6d;
+  --color-brand-900: #073b51;
+  --color-brand-950: #04283a;
+
   /* 6A-B1: pila de fuentes del sistema (sin descarga de Google Fonts en el build). */
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+html {
+  color-scheme: light;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+::selection {
+  background-color: #bfe8f7;
+  color: #04283a;
 }

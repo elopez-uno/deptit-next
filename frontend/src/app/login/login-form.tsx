@@ -44,7 +44,7 @@ export function LoginForm() {
   return (
     <form onSubmit={onSubmit} className="mt-8 space-y-5" noValidate>
       {notice && !error && (
-        <div className="rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-800">
+        <div className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-800">
           {notice}
         </div>
       )}

@@ -60,6 +60,7 @@ COPY --from=build --chown=node:node /app/frontend/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/frontend/.next ./.next
 COPY --from=build --chown=node:node /app/frontend/next.config.ts ./next.config.ts
 COPY --from=build --chown=node:node /app/frontend/tsconfig.json ./tsconfig.json
+COPY --from=build --chown=node:node /app/frontend/public ./public
 COPY --from=build --chown=node:node /app/frontend/src/lib/security-headers.ts ./src/lib/security-headers.ts
 
 USER node

@@ -351,7 +351,7 @@ const SEMAFORO: Record<string, string> = {
   rojo: "bg-[#b91c1c] text-white font-bold",
   amarillo: "bg-[#facc15] text-[#111827] font-bold",
   verde: "bg-[#15803d] text-white font-bold",
-  azul: "bg-[#2563eb] text-white font-bold",
+  azul: "bg-brand-600 text-white font-bold",
 };
 const GRAVEDADES = ["Alta", "Media", "Baja"];
 

@@ -11,7 +11,7 @@ export function FeedbackBox({ feedback }: { feedback: { tone: Tone; text: string
     success: "border-emerald-200 bg-emerald-50 text-emerald-800",
     warning: "border-amber-200 bg-amber-50 text-amber-800",
     error: "border-red-200 bg-red-50 text-red-700",
-    info: "border-brand-100 bg-brand-50 text-brand-800",
+    info: "border-brand-200 bg-brand-50 text-brand-800",
   };
   return (
     <div role="status" className={`mb-4 rounded-xl border px-4 py-3 text-sm ${tones[feedback.tone]}`}>
@@ -35,14 +35,15 @@ export function Card({ children }: { children: React.ReactNode }) {
 export function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-medium text-slate-500">{label}</span>
+      <span className="mb-1 block text-xs font-medium text-slate-600">{label}</span>
       {children}
       {hint && <span className="mt-1 block text-xs text-slate-400">{hint}</span>}
     </label>
   );
 }
 
-const inputCls = "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50";
+const inputCls =
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/15 disabled:bg-slate-50 disabled:text-slate-500";
 
 export function TextInput({
   value,
@@ -198,7 +199,7 @@ export function PrimaryButton({
       type="button"
       onClick={onClick}
       disabled={busy || disabled}
-      className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${tones[tone]}`}
+      className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold shadow-sm transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-50 ${tones[tone]}`}
     >
       {busy && <Spinner />}
       {children}
@@ -226,11 +227,11 @@ export function DataTable<T extends Record<string, unknown>>({
   return (
     <div className={`overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm ${maxHeight}`}>
       <table className="min-w-full text-left text-sm">
-        <thead className="sticky top-0 border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+        <thead className="sticky top-0 border-b border-slate-200 bg-brand-50/70 text-xs uppercase tracking-wider text-brand-800/80">
           <tr>
             {onSelect && <th scope="col" className="w-8 px-3 py-3" />}
             {columns.map((c) => (
-              <th key={c.key} scope="col" className="whitespace-nowrap px-4 py-3 font-medium">
+              <th key={c.key} scope="col" className="whitespace-nowrap px-4 py-3 font-semibold">
                 {c.label}
               </th>
             ))}
@@ -244,7 +245,7 @@ export function DataTable<T extends Record<string, unknown>>({
               <tr
                 key={k}
                 onClick={onSelect ? () => onSelect(k) : undefined}
-                className={`${onSelect ? "cursor-pointer hover:bg-slate-50" : ""} ${isSel ? "bg-brand-50/60" : ""}`}
+                className={`${onSelect ? "cursor-pointer hover:bg-slate-50" : ""} ${isSel ? "bg-brand-50" : ""}`}
               >
                 {onSelect && (
                   <td className="px-3 py-2">
@@ -287,7 +288,7 @@ export function Details({
 }) {
   return (
     <details open={defaultOpen} className="group rounded-xl border border-slate-200 bg-white shadow-sm">
-      <summary className="cursor-pointer select-none px-5 py-3 text-sm font-medium text-slate-800">{summary}</summary>
+      <summary className="cursor-pointer select-none px-5 py-3 text-sm font-medium text-brand-950 transition hover:bg-brand-50/50">{summary}</summary>
       <div className="space-y-4 border-t border-slate-100 px-5 py-4">{children}</div>
     </details>
   );

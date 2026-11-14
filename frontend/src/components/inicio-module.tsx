@@ -40,14 +40,14 @@ function Caption({ children }: { children: React.ReactNode }) {
 }
 
 function H2({ children }: { children: React.ReactNode }) {
-  return <h3 className="pt-4 text-xl font-semibold text-slate-900">{children}</h3>;
+  return <h3 className="pt-4 text-xl font-semibold tracking-tight text-brand-950">{children}</h3>;
 }
 
 function Tarjeta({ m, borde = false }: { m: Metrica; borde?: boolean }) {
   return (
-    <div className={`rounded-xl bg-white px-4 py-3 ${borde ? "border border-slate-200 shadow-sm" : ""}`} data-testid="metrica">
+    <div className={`rounded-xl bg-white px-4 py-3 ${borde ? "border border-slate-200 border-l-4 border-l-brand-500 shadow-sm" : ""}`} data-testid="metrica">
       <p className="text-xs text-slate-500">{m.label}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900">{m.valor}</p>
+      <p className="mt-1 text-2xl font-semibold text-brand-950">{m.valor}</p>
       {m.caption && <Caption>{m.caption}</Caption>}
     </div>
   );
@@ -61,8 +61,8 @@ function Grilla({ tabla }: { tabla: Tabla }) {
   return (
     <div className="max-h-[28rem] overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm">
       <table className="min-w-full text-left text-sm">
-        <thead className="sticky top-0 border-b border-slate-200 bg-slate-50 text-xs text-slate-500">
-          <tr>{tabla.columnas.map((c) => <th key={c} scope="col" className="whitespace-nowrap px-3 py-2 font-medium">{c}</th>)}</tr>
+        <thead className="sticky top-0 border-b border-slate-200 bg-brand-50/70 text-xs text-brand-800/80">
+          <tr>{tabla.columnas.map((c) => <th key={c} scope="col" className="whitespace-nowrap px-3 py-2 font-semibold">{c}</th>)}</tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {tabla.filas.map((f, i) => (
@@ -77,7 +77,7 @@ function Grilla({ tabla }: { tabla: Tabla }) {
 function Expander({ titulo, abierto = false, children }: { titulo: string; abierto?: boolean; children: React.ReactNode }) {
   return (
     <details open={abierto} className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <summary className="cursor-pointer select-none px-5 py-3 text-sm font-medium text-slate-800">{titulo}</summary>
+      <summary className="cursor-pointer select-none px-5 py-3 text-sm font-medium text-brand-950 transition hover:bg-brand-50/50">{titulo}</summary>
       <div className="space-y-3 border-t border-slate-100 px-5 py-4">{children}</div>
     </details>
   );
@@ -94,10 +94,10 @@ function Progreso({ valor, label }: { valor: number; label: string }) {
 
 function BotonNav({ b, onNavigate, ancho = false }: { b: Boton; onNavigate: Navegar; ancho?: boolean }) {
   const cls = b.primario
-    ? "bg-brand-700 text-white hover:bg-brand-800"
+    ? "bg-brand-700 text-white shadow-sm hover:bg-brand-800"
     : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-50";
   return (
-    <button type="button" onClick={() => onNavigate(b.destino)} className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${cls} ${ancho ? "w-full" : ""}`}>
+    <button type="button" onClick={() => onNavigate(b.destino)} className={`rounded-lg px-4 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/30 ${cls} ${ancho ? "w-full" : ""}`}>
       {b.label}
     </button>
   );
