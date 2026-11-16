@@ -340,8 +340,9 @@ docker compose --profile tools run --rm backend-tests     # pytest (suite del ba
 * **Rate limit de `/api/auth/login`**: Caddy OSS no lo trae; lo aplica el backend por cuenta y por IP
   real (documentado en 6A-B4). El límite de body (52 MiB), el timeout (~120 s), la preservación del
   `Host`, el 421 por Host ajeno (`strict_sni_host`) y el `no-store` de `/api/*` sí están en el proxy.
-* **`tzdata` en las imágenes**: `settings.apply_timezone` hace `time.tzset()`, que sin
-  `/usr/share/zoneinfo` no aplica la zona y en producción el backend se niega a arrancar.
+* **`tzdata` en la imagen del backend**: `settings.apply_timezone` hace `time.tzset()`, que sin
+  `/usr/share/zoneinfo` no aplica la zona y en producción el backend se niega a arrancar. El frontend
+  no lo necesita (no formatea fechas en SSR; Node trae la base de ICU y compose inyecta `TZ`).
 * **`pg_dump` 18 en la imagen del backend** (repo PGDG): el servidor es PostgreSQL 18 y pg_dump no
   puede dumpar una versión mayor que la propia.
 * **Healthcheck del db exige que la base exista**: evita que el backend arranque contra un clúster a

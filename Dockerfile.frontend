@@ -43,10 +43,11 @@ CMD ["npx", "vitest", "run"]
 # ----------------------------------------------------------------------------- runtime
 FROM node:24-slim AS runtime
 
-# TZ: fechas SSR en la zona institucional (compose lo inyecta tambien; imagen preparada).
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends tzdata \
-    && rm -rf /var/lib/apt/lists/*
+# TZ: compose inyecta TZ=America/Argentina/Buenos_Aires en el contenedor. Node 24 trae la base de
+# zonas horarias de ICU en el binario, así que NO se instala tzdata: el runtime del frontend no
+# formatea fechas en SSR (los módulos son cliente y el backend entrega fechas ya formateadas), y
+# así el build no depende de repositorios Debian (apt) para levantar la imagen.
+ENV TZ=America/Argentina/Buenos_Aires
 
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
