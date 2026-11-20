@@ -280,7 +280,7 @@ def test_http_csrf_sesion_y_respuesta_limpia(http, auth_db, db_conn):
 
 # ------------------------------------------------------------------------------------------ arquitectura
 def test_composicion_solo_lectura_y_sin_ciclos():
-    for nombre in ("resumen_docente.py", "resumen_pagina.py"):
+    for nombre in ("resumen_docente.py", "resumen_pagina.py", "resumen_horas.py"):
         codigo = re.sub(r'"""[\s\S]*?"""', "", (BACKEND / "integraciones" / nombre).read_text(encoding="utf-8"))
         assert not re.search(r"(?i)\b(INSERT|UPDATE|DELETE|AuditStore|commit)\b", codigo)
     assert "SET TRANSACTION READ ONLY" in (BACKEND / "integraciones" / "resumen_docente.py").read_text(encoding="utf-8")

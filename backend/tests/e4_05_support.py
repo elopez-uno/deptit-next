@@ -423,6 +423,39 @@ def _segmento_sueldo(ev: list) -> tuple[int, int]:
     return i, next(k for k in range(i, len(ev)) if ev[k] == ("divider",))
 
 
+def _segmento_tarjeta(ev: list) -> tuple[int, int]:
+    """[inicio, fin) de la tarjeta del resumen: entre el divider que cierra "Datos generales" y el siguiente."""
+    i = ev.index(("divider",)) + 1
+    return i, next(k for k in range(i, len(ev)) if ev[k] == ("divider",))
+
+
+def _hs(valor: str) -> float:
+    return float(str(valor).replace("hs", "").replace("+", "").strip())
+
+
+def tarjeta_consistente(r: dict) -> bool:
+    """fix-horas-en-resumen-docente: la tarjeta NEXT corrige los Bugs A y B del certificado (fusión de designaciones
+    iguales de departamentos distintos en periodos cerrados; evolución que ignoraba altas y bajas).  Solo se acepta
+    si cumple la regla corregida y coincide con la tabla "Designaciones institucionales del docente" de la MISMA
+    respuesta (casos funcionales: ``tests/test_resumen_horas.py``)."""
+    s = r["secciones"]
+    t = s["tarjeta"]
+    e = t["evolucion"]
+    base, var, fin = _hs(e["base"]["valor"]), _hs(e["movimiento"]["valor"]), _hs(e["resultado"]["valor"])
+    assert abs(base + var - fin) < 1e-6, ("base + variación != final", base, var, fin)
+    assert _hs(t["horas"]["valor"]) == fin
+    assert t["variacion"]["valor"] == e["movimiento"]["valor"], "indicador superior distinto de la variación neta"
+    deps = t["departamentos"]
+    if deps is not None:
+        assert abs(sum(float(f[2]) for f in deps["filas"]) - fin) < 1e-6
+        tabla = s["designaciones"]["tabla"]
+        assert tabla is not None, "la tarjeta informa departamentos que no están en Designaciones institucionales"
+        col = tabla["columnas"].index("departamento")
+        assert {f[0] for f in deps["filas"]} <= {f[col] for f in tabla["filas"]}
+    assert bool(t["compartido"]) == (deps is not None and len(deps["filas"]) > 1)
+    return True
+
+
 def comparar(cert_ev: list, r: dict, verificar_sueldo=None) -> list:
     """Compara desde "### Datos generales"; devuelve la lista de secciones comparadas (por su encabezado).
 
@@ -438,6 +471,12 @@ def comparar(cert_ev: list, r: dict, verificar_sueldo=None) -> list:
     (_, label, opciones, index), = [e for e in cabeza if e[0] == "selectbox"]
     assert label == "Período a analizar" and [p["nombre"] for p in r["periodos"]] == opciones
     esperado = stream_next(r)
+    # fix-horas-en-resumen-docente: la tarjeta puede diferir del certificado SOLO por la corrección (verificada).
+    ti, tj = _segmento_tarjeta(cuerpo)
+    ei, ej = _segmento_tarjeta(esperado)
+    if cuerpo[ti:tj] != esperado[ei:ej]:
+        assert tarjeta_consistente(r), "tarjeta distinta del certificado sin verificar"
+        cuerpo = cuerpo[:ti] + esperado[ei:ej] + cuerpo[tj:]
     ci, cj = _segmento_sueldo(cuerpo)
     ni, nj = _segmento_sueldo(esperado)
     if cuerpo[ci:cj] != esperado[ni:nj]:

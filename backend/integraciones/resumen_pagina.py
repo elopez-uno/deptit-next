@@ -11,6 +11,7 @@ La seccion "Mensaje para consultar la designación" (estado de consulta + writer
 """
 from __future__ import annotations
 
+import logging
 from typing import Any, Optional
 
 import pandas as pd
@@ -18,6 +19,10 @@ import pandas as pd
 from analisis import pagina as P
 from materias.rules import presentar_unidades_academicas
 from sueldos import rules as SR
+
+from . import resumen_horas as RH
+
+log = logging.getLogger("deptit.resumen_pagina")
 
 SUBTITULO = "Resumen individual del docente"
 INFO = ("Seleccioná un docente y un período para analizar designaciones, movimientos, investigación, "
@@ -34,6 +39,7 @@ CAPTION_DESIGNACIONES = ("Se muestran las designaciones reales del mismo CUIL en
 CAPTION_ACTOS = ("Histórico completo del docente. Se muestran únicamente el código del acto, la dependencia emisora, "
                  "el tipo de movimiento y su detalle. Incluye documentos del repositorio, disposiciones generadas por la "
                  "app y resoluciones informadas en sus designaciones.")
+CAPTION_VARIACION_NETA = "Variación neta de horas en el período."
 CAPTION_FUNCIONES_ND = ("Estas funciones pertenecen a designaciones administrativas/no docentes. "
                         "Se muestran como información de la persona, pero no forman parte de la productividad docente.")
 COLS_ACTIVIDADES = ["periodo", "departamento_asignacion", "titulo", "rol", "estado_actividad", "estado_asignacion",
@@ -101,9 +107,42 @@ def datos_generales(ns: dict, fila_doc: pd.Series, cuil: str, periodo_id: int) -
 
 
 # ------------------------------------------------------------------------------------------ tarjeta resumen actual
-def tarjeta(ns: dict, cuil: str, periodo_id: int, periodo_nombre: str) -> dict:
-    """``render_tarjeta_resumen_actual_docente`` (l. 27714-27838)."""
-    resumen = ns["get_resumen_actual_periodo_docente"](cuil, periodo_id)
+def _corregir_situacion(ns: dict, cuil: str, periodo_id: int, fila_periodo: Optional[dict], resumen: dict) -> dict:
+    """fix-horas-en-resumen-docente (Bugs A y B, ver ``integraciones.resumen_horas``): reemplaza en el resumen del
+    motor los datos de cargos, horas, departamentos y evolución por los calculados con la fuente institucional de la
+    tabla "Designaciones institucionales del docente" y la regla ``base + variación neta = final``.  Estado de la
+    designación, funciones no docentes y cambios de cargo siguen siendo los del motor.  Si el cálculo no aplica
+    (``None``) o falla, se conserva el resumen del motor."""
+    try:
+        sit = RH.situacion_desde_motor(ns, cuil, periodo_id, fila_periodo, resumen)
+    except Exception as exc:  # la tarjeta nunca deja la página sin respuesta
+        log.warning("resumen_horas: se conserva la tarjeta del motor (%s)", type(exc).__name__)
+        return resumen
+    if sit is None:
+        return resumen
+    return {
+        **resumen,
+        "departamentos_periodo": sit["departamentos"],
+        "horas_actuales": sit["horas_finales"],
+        "horas_total_departamentos": sit["horas_finales"],
+        # Un único concepto de variación en toda la tarjeta: el indicador "Aumento / disminución" y la "Evolución de
+        # horas del período" muestran la MISMA variación neta (altas, bajas, aumentos y disminuciones).
+        "variacion_horas": sit["variacion_neta"],
+        "variacion_es_neta": True,
+        "baja_en_periodo": sit["baja_en_periodo"],
+        "cargos_actuales": sit["cargos"] + sit["suspendidas"],
+        "balance_horas_periodo": {
+            "horas_inicio_operativo": sit["horas_base"],
+            "variacion_operativa": sit["variacion_neta"],
+            "horas_resultado_operativo": sit["horas_finales"],
+        },
+    }
+
+
+def tarjeta(ns: dict, cuil: str, periodo_id: int, periodo_nombre: str, fila_periodo: Optional[dict] = None) -> dict:
+    """``render_tarjeta_resumen_actual_docente`` (l. 27714-27838), con la situación institucional corregida."""
+    resumen = _corregir_situacion(ns, cuil, periodo_id, fila_periodo,
+                                  dict(ns["get_resumen_actual_periodo_docente"](cuil, periodo_id) or {}))
     prestado = bool(ns["es_docente_prestado_local"](cuil))
     aviso_prestado = None
     if prestado:
@@ -167,7 +206,9 @@ def tarjeta(ns: dict, cuil: str, periodo_id: int, periodo_nombre: str) -> dict:
         "horas": {"label": label_horas, "valor": f"{resumen.get('horas_actuales', 0):g} hs"},
         "variacion": {"label": "Aumento / disminución", "valor": f"{'+' if variacion > 0 else ''}{variacion:g} hs",
                       "tono": "positivo" if variacion > 0 else ("negativo" if variacion < 0 else "neutro"),
-                      "caption": "Solo cambios reales de dedicación."},
+                      # Sin la corrección (respaldo: tarjeta del motor) el valor sigue siendo el del motor y su leyenda.
+                      "caption": (CAPTION_VARIACION_NETA if resumen.get("variacion_es_neta")
+                                  else "Solo cambios reales de dedicación.")},
         "cambios": {"label": "Cambio de cargo", "lineas": cambios},
         "evolucion": evolucion,
         "compartido": ("🧩 DOCENTE COMPARTIDO: tiene designaciones en más de un departamento para este período."
@@ -311,7 +352,7 @@ def resumen(ns: dict, cuil: str, periodo_id: int, periodo_nombre: str, fila_peri
                         "locales.")
     return {
         "datos_generales": datos_generales(ns, fila_doc, cuil, periodo_id),
-        "tarjeta": tarjeta(ns, cuil, periodo_id, per),
+        "tarjeta": tarjeta(ns, cuil, periodo_id, per, fila_periodo),
         "designaciones": _seccion_tabla(
             f"Designaciones institucionales del docente — {per}",
             ns["get_designaciones_docente_todos_departamentos_pg"](cuil, periodo_id),
