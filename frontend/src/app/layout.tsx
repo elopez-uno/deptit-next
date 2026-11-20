@@ -6,12 +6,16 @@ import "./globals.css";
 // (globals.css, --font-sans / --font-mono).
 
 export const metadata: Metadata = {
-  // 6A-B4 (R-B3-10, actualizado): la instalación es de la Universidad Nacional del Oeste, por lo que el branding
-  // institucional (nombre y logo) también aparece antes del login. Dentro del sistema el encabezado sigue siendo la
-  // institución ACTIVA que entrega el backend.
-  applicationName: "DEPTIT NEXT",
-  title: "DEPTIT NEXT — Universidad Nacional del Oeste",
-  description: "Sistema de Gestión Académica Departamental — Universidad Nacional del Oeste",
+  // 6A-B4 (R-B3-10): branding neutro de la instalación; ninguna universidad antes del login. La institución activa
+  // se muestra dentro del sistema a partir del contexto que entrega el backend.
+  applicationName: "DEPTIT",
+  title: "DEPTIT — Gestión académica",
+  description: "Sistema de gestión académica departamental",
+  // Favicon / app icon: isotipo DEPTIT de /public/branding, servido tal cual.
+  icons: {
+    icon: [{ url: "/branding/deptit-icono.png", type: "image/png" }],
+    apple: [{ url: "/branding/deptit-icono.png", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

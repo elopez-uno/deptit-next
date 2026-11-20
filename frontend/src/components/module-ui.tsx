@@ -11,7 +11,7 @@ export function FeedbackBox({ feedback }: { feedback: { tone: Tone; text: string
     success: "border-emerald-200 bg-emerald-50 text-emerald-800",
     warning: "border-amber-200 bg-amber-50 text-amber-800",
     error: "border-red-200 bg-red-50 text-red-700",
-    info: "border-brand-200 bg-brand-50 text-brand-800",
+    info: "border-brand-100 bg-brand-50 text-brand-800",
   };
   return (
     <div role="status" className={`mb-4 rounded-xl border px-4 py-3 text-sm ${tones[feedback.tone]}`}>
@@ -227,11 +227,11 @@ export function DataTable<T extends Record<string, unknown>>({
   return (
     <div className={`overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm ${maxHeight}`}>
       <table className="min-w-full text-left text-sm">
-        <thead className="sticky top-0 border-b border-slate-200 bg-brand-50/70 text-xs uppercase tracking-wider text-brand-800/80">
+        <thead className="sticky top-0 border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
           <tr>
             {onSelect && <th scope="col" className="w-8 px-3 py-3" />}
             {columns.map((c) => (
-              <th key={c.key} scope="col" className="whitespace-nowrap px-4 py-3 font-semibold">
+              <th key={c.key} scope="col" className="whitespace-nowrap px-4 py-3 font-medium">
                 {c.label}
               </th>
             ))}
@@ -245,7 +245,7 @@ export function DataTable<T extends Record<string, unknown>>({
               <tr
                 key={k}
                 onClick={onSelect ? () => onSelect(k) : undefined}
-                className={`${onSelect ? "cursor-pointer hover:bg-slate-50" : ""} ${isSel ? "bg-brand-50" : ""}`}
+                className={`${onSelect ? "cursor-pointer hover:bg-slate-50" : ""} ${isSel ? "bg-brand-50/60" : ""}`}
               >
                 {onSelect && (
                   <td className="px-3 py-2">
@@ -288,7 +288,7 @@ export function Details({
 }) {
   return (
     <details open={defaultOpen} className="group rounded-xl border border-slate-200 bg-white shadow-sm">
-      <summary className="cursor-pointer select-none px-5 py-3 text-sm font-medium text-brand-950 transition hover:bg-brand-50/50">{summary}</summary>
+      <summary className="cursor-pointer select-none px-5 py-3 text-sm font-medium text-slate-800 transition hover:bg-brand-50/50">{summary}</summary>
       <div className="space-y-4 border-t border-slate-100 px-5 py-4">{children}</div>
     </details>
   );
