@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ActividadesEspecialesModule } from "@/components/actividades-especiales-module";
-import { Spinner, UnoLogo } from "@/components/brand";
+import { BrandMark, Spinner } from "@/components/brand";
 import { ComisionesModule } from "@/components/comisiones-module";
 import { ContextSwitcher } from "@/components/context-switcher";
 import { ContextoHistorico } from "@/components/contexto-historico";
@@ -129,19 +129,15 @@ export function AppShell() {
 
   return (
     <div className="flex min-h-screen">
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-white/10 bg-brand-950 text-brand-100 md:flex">
-        <div className="border-b border-white/10 px-4 py-5">
-          <div className="flex items-center justify-center rounded-lg bg-white px-3 py-2.5 shadow-sm">
-            <UnoLogo className="h-auto w-[150px]" />
+      <aside className="hidden w-64 shrink-0 flex-col bg-brand-950 text-brand-100 md:flex">
+        <div className="flex items-center gap-3 px-5 py-5">
+          <BrandMark className="h-9 w-9" />
+          <div className="min-w-0">
+            <p className="font-semibold tracking-tight text-white">DEPTIT</p>
+            <p className="truncate text-[11px] text-brand-100/60">Gestión académica</p>
           </div>
-          <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-white">
-            DEPTIT NEXT
-          </p>
-          <p className="text-[11px] leading-snug text-brand-200/70">
-            Gestión académica departamental
-          </p>
         </div>
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-3" aria-label="Módulos">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4" aria-label="Módulos">
           {session.modulos.map((m) => (
             <button
               key={m.clave}
@@ -149,8 +145,8 @@ export function AppShell() {
               aria-current={m.clave === current.clave ? "page" : undefined}
               className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition ${
                 m.clave === current.clave
-                  ? "bg-brand-600 font-medium text-white shadow-sm"
-                  : "text-brand-100/70 hover:bg-white/5 hover:text-white"
+                  ? "bg-white/10 font-medium text-white"
+                  : "text-brand-100/75 hover:bg-white/5 hover:text-white"
               }`}
             >
               <ModuleBadge nombre={m.nombre} active={m.clave === current.clave} />
@@ -159,13 +155,10 @@ export function AppShell() {
           ))}
         </nav>
         <div className="border-t border-white/10 p-3">
-          <p className="px-3 pb-2 text-[10px] leading-relaxed text-brand-200/70">
-            Universidad Nacional del Oeste
-          </p>
           <button
             onClick={logout}
             disabled={loggingOut}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-sm text-brand-100/80 transition hover:border-white/20 hover:bg-white/5 hover:text-white disabled:opacity-60"
+            className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-brand-100/80 transition hover:bg-white/5 hover:text-white disabled:opacity-60"
           >
             {loggingOut && <Spinner />}
             Cerrar sesión
@@ -174,13 +167,9 @@ export function AppShell() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div
-          aria-hidden="true"
-          className="h-1 w-full bg-gradient-to-r from-brand-800 via-brand-500 to-brand-400"
-        />
         <header className="flex flex-wrap items-center gap-4 border-b border-slate-200 bg-white px-6 py-3">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.2em] text-brand-700">
+            <p className="truncate text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
               {session.contexto.institucion_encabezado}
             </p>
             <h1 className="truncate text-lg font-semibold tracking-tight text-brand-950">
@@ -201,7 +190,7 @@ export function AppShell() {
             <button
               onClick={logout}
               disabled={loggingOut}
-              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-800 disabled:opacity-60"
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
             >
               Cerrar sesión
             </button>
@@ -300,19 +289,6 @@ export function AppShell() {
           </div>
         </main>
 
-        <footer className="border-t border-slate-200 bg-white px-6 py-4">
-          <div className="mx-auto flex max-w-6xl flex-col gap-1 text-[11px] text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-            <p>
-              <span className="font-semibold text-brand-900">DEPTIT NEXT</span>
-              <span aria-hidden="true" className="mx-1.5 text-slate-300">
-                ·
-              </span>
-              Universidad Nacional del Oeste
-            </p>
-            <p>Gestión académica departamental</p>
-          </div>
-        </footer>
-
         <MobileNav session={session} active={current.clave} onSelect={selectModule} />
       </div>
     </div>
@@ -385,7 +361,7 @@ function ModuleBadge({ nombre, active, light }: { nombre: string; active?: boole
   const cls = light
     ? "bg-brand-50 text-brand-700"
     : active
-      ? "bg-white text-brand-800"
+      ? "bg-brand-500 text-white"
       : "bg-white/10 text-brand-100";
   return (
     <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md text-[11px] font-semibold ${cls}`}>
@@ -397,7 +373,6 @@ function ModuleBadge({ nombre, active, light }: { nombre: string; active?: boole
 function CenteredMessage({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-      <UnoLogo className="mb-6 h-auto w-[150px]" />
       {children}
     </div>
   );
