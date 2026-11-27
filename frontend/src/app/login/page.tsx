@@ -5,29 +5,40 @@ import { LoginForm } from "./login-form";
 export default function LoginPage() {
   return (
     <main className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
-      <section className="relative hidden overflow-hidden bg-brand-900 text-white lg:flex lg:flex-col lg:justify-between lg:p-14">
+      <section className="relative hidden overflow-hidden bg-brand-950 text-white lg:flex lg:flex-col lg:justify-between lg:p-14">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-60"
+          className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(900px circle at 10% 10%, rgba(47,111,214,0.45), transparent 55%), radial-gradient(700px circle at 90% 90%, rgba(20,184,166,0.25), transparent 50%)",
+              "radial-gradient(900px circle at 8% 8%, rgba(47,111,214,0.42), transparent 52%), radial-gradient(800px circle at 95% 88%, rgba(37,99,235,0.28), transparent 52%)",
           }}
         />
-        {/* El logo completo ya contiene "DEPTIT" y "Gestión académica": no se repite en texto. */}
+
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-24 -left-24 h-[420px] w-[720px] rotate-[-8deg] rounded-[50%] border-[64px] border-brand-700/20"
+        />
+
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-40 left-20 h-[420px] w-[760px] rotate-[-8deg] rounded-[50%] border-[54px] border-brand-500/15"
+        />
+
         <div className="relative">
-          <div className="inline-flex rounded-2xl bg-white px-6 py-4 shadow-lg shadow-black/20">
-            <BrandLogo className="h-auto w-[240px]" />
-          </div>
+          <BrandLogo
+            variant="light"
+            className="h-auto w-[240px]"
+          />
         </div>
 
-        <div className="relative max-w-md">
+        <div className="relative max-w-lg">
           <h1 className="text-4xl font-semibold leading-tight tracking-tight">
-            Docentes, designaciones y períodos en un solo lugar.
+            Gestión departamental en un solo lugar.
           </h1>
-          <p className="mt-5 text-base leading-relaxed text-brand-100/75">
-            La nueva plataforma de gestión departamental. Ingresá con tu cuenta institucional para
-            continuar.
+
+          <p className="mt-5 max-w-md text-base leading-relaxed text-brand-100/75">
+            Toda la gestión académica de tu departamento, centralizada en una sola plataforma.
           </p>
         </div>
 
@@ -42,8 +53,13 @@ export default function LoginPage() {
             <BrandLogo className="h-auto w-[220px]" />
           </div>
 
-          <h2 className="text-2xl font-semibold tracking-tight text-brand-950">Ingresar</h2>
-          <p className="mt-2 text-sm text-slate-500">Sistema de gestión académica</p>
+          <h2 className="text-2xl font-semibold tracking-tight text-brand-950">
+            Ingresar
+          </h2>
+
+          <p className="mt-2 text-sm text-slate-500">
+            Sistema de gestión académica
+          </p>
 
           <Suspense fallback={<div className="mt-8 h-64" />}>
             <LoginForm />
