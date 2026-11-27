@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ActividadesEspecialesModule } from "@/components/actividades-especiales-module";
-import { BrandMark, Spinner } from "@/components/brand";
+import { BrandLogo, Spinner } from "@/components/brand";
 import { ComisionesModule } from "@/components/comisiones-module";
 import { ContextSwitcher } from "@/components/context-switcher";
 import { ContextoHistorico } from "@/components/contexto-historico";
@@ -30,6 +30,36 @@ import {
   roleLabel,
 } from "@/lib/auth";
 
+const SIDEBAR_TOP = ["inicio", "consolidado"];
+
+const SIDEBAR_GROUPS = [
+  {
+    label: "GESTIÓN ACADÉMICA",
+    keys: ["periodos", "materias", "comisiones"],
+  },
+  {
+    label: "PLANTA DOCENTE",
+    keys: ["docentes", "sueldos", "designaciones"],
+  },
+  {
+    label: "ACTIVIDADES",
+    keys: ["investigacion", "extension", "actividades_especiales"],
+  },
+  {
+    label: "CONTROL Y ANÁLISIS",
+    keys: [
+      "movimientos",
+      "disposiciones",
+      "resoluciones_respaldos",
+      "analisis",
+    ],
+  },
+  {
+    label: "SISTEMA",
+    keys: ["administracion_saas"],
+  },
+];
+
 export function AppShell() {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
@@ -44,6 +74,7 @@ export function AppShell() {
         router.replace(aviso ? `/login?aviso=${aviso}` : "/login");
         return;
       }
+
       setUnavailable(
         err instanceof ApiError
           ? err.message
@@ -53,7 +84,7 @@ export function AppShell() {
     [router]
   );
 
-  // Revalida la sesión contra el backend (equivale a cada rerun de la app certificada).
+  // Revalida la sesión contra el backend.
   const refresh = useCallback(async () => {
     try {
       const data = await authApi.me();
@@ -68,6 +99,7 @@ export function AppShell() {
 
   useEffect(() => {
     let cancelled = false;
+
     authApi
       .me()
       .then((data) => {
@@ -76,6 +108,7 @@ export function AppShell() {
       .catch((err) => {
         if (!cancelled) handleError(err);
       });
+
     return () => {
       cancelled = true;
     };
@@ -83,29 +116,39 @@ export function AppShell() {
 
   async function selectModule(clave: string) {
     setActive(clave);
+
     const data = await refresh();
-    if (data && !data.modulos.some((m) => m.clave === clave)) setActive("inicio");
+
+    if (data && !data.modulos.some((m) => m.clave === clave)) {
+      setActive("inicio");
+    }
   }
 
   async function logout() {
     setLoggingOut(true);
+
     try {
       await authApi.logout();
     } catch {
-      // aunque falle la red, se sale; el backend expira la sesión por tiempo
+      // Aunque falle la red, se sale.
     }
+
     router.replace("/login?aviso=cerrada");
   }
 
   function onContextChanged(data: Session) {
     setSession(data);
-    if (!data.modulos.some((m) => m.clave === active)) setActive("inicio");
+
+    if (!data.modulos.some((m) => m.clave === active)) {
+      setActive("inicio");
+    }
   }
 
   if (unavailable && !session) {
     return (
       <CenteredMessage>
         <p className="font-medium text-slate-800">{unavailable}</p>
+
         <button
           onClick={() => refresh()}
           className="mt-4 rounded-lg bg-brand-700 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-800"
@@ -120,40 +163,110 @@ export function AppShell() {
     return (
       <CenteredMessage>
         <Spinner className="h-6 w-6 text-brand-600" />
-        <p className="mt-3 text-sm text-slate-500">Verificando sesión…</p>
+        <p className="mt-3 text-sm text-slate-500">
+          Verificando sesión…
+        </p>
       </CenteredMessage>
     );
   }
 
-  const current = session.modulos.find((m) => m.clave === active) ?? session.modulos[0];
+  const current =
+    session.modulos.find((m) => m.clave === active) ??
+    session.modulos[0];
+
+  const modulesByKey = new Map<string, Modulo>(
+    session.modulos.map((modulo) => [modulo.clave, modulo])
+  );
+
+  const topModules = SIDEBAR_TOP
+    .map((clave) => modulesByKey.get(clave))
+    .filter((modulo): modulo is Modulo => Boolean(modulo));
+
+  const sidebarGroups = SIDEBAR_GROUPS
+    .map((group) => ({
+      ...group,
+      modules: group.keys
+        .map((clave) => modulesByKey.get(clave))
+        .filter((modulo): modulo is Modulo => Boolean(modulo)),
+    }))
+    .filter((group) => group.modules.length > 0);
+
+  const knownSidebarKeys = new Set<string>([
+    ...SIDEBAR_TOP,
+    ...SIDEBAR_GROUPS.flatMap((group) => group.keys),
+  ]);
+
+  const otherModules = session.modulos.filter(
+    (modulo) => !knownSidebarKeys.has(modulo.clave)
+  );
 
   return (
     <div className="flex min-h-screen">
       <aside className="hidden w-64 shrink-0 flex-col bg-brand-950 text-brand-100 md:flex">
-        <div className="flex items-center gap-3 px-5 py-5">
-          <BrandMark className="h-9 w-9" />
-          <div className="min-w-0">
-            <p className="font-semibold tracking-tight text-white">DEPTIT</p>
-            <p className="truncate text-[11px] text-brand-100/60">Gestión académica</p>
-          </div>
+        <div className="px-5 pb-5 pt-5">
+          <BrandLogo
+            variant="light"
+            className="h-auto w-[170px]"
+          />
         </div>
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 pb-4" aria-label="Módulos">
-          {session.modulos.map((m) => (
-            <button
-              key={m.clave}
-              onClick={() => selectModule(m.clave)}
-              aria-current={m.clave === current.clave ? "page" : undefined}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition ${
-                m.clave === current.clave
-                  ? "bg-white/10 font-medium text-white"
-                  : "text-brand-100/75 hover:bg-white/5 hover:text-white"
-              }`}
+
+        <nav
+          className="flex-1 overflow-y-auto px-3 pb-4"
+          aria-label="Módulos"
+        >
+          <div className="space-y-0.5">
+            {topModules.map((m) => (
+              <SidebarButton
+                key={m.clave}
+                modulo={m}
+                active={m.clave === current.clave}
+                onSelect={selectModule}
+              />
+            ))}
+          </div>
+
+          {sidebarGroups.map((group) => (
+            <div
+              key={group.label}
+              className="mt-5 border-t border-white/10 pt-4"
             >
-              <ModuleBadge nombre={m.nombre} active={m.clave === current.clave} />
-              <span className="truncate">{m.nombre}</span>
-            </button>
+              <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-100/55">
+                {group.label}
+              </p>
+
+              <div className="space-y-0.5">
+                {group.modules.map((m) => (
+                  <SidebarButton
+                    key={m.clave}
+                    modulo={m}
+                    active={m.clave === current.clave}
+                    onSelect={selectModule}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
+
+          {otherModules.length > 0 && (
+            <div className="mt-5 border-t border-white/10 pt-4">
+              <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-brand-100/55">
+                OTROS
+              </p>
+
+              <div className="space-y-0.5">
+                {otherModules.map((m) => (
+                  <SidebarButton
+                    key={m.clave}
+                    modulo={m}
+                    active={m.clave === current.clave}
+                    onSelect={selectModule}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </nav>
+
         <div className="border-t border-white/10 p-3">
           <button
             onClick={logout}
@@ -172,21 +285,35 @@ export function AppShell() {
             <p className="truncate text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
               {session.contexto.institucion_encabezado}
             </p>
+
             <h1 className="truncate text-lg font-semibold tracking-tight text-brand-950">
               {current.nombre}
             </h1>
           </div>
-          <ContextSwitcher session={session} onChanged={onContextChanged} onError={handleError} />
+
+          <ContextSwitcher
+            session={session}
+            onChanged={onContextChanged}
+            onError={handleError}
+          />
+
           <div className="flex items-center gap-3">
             <div className="text-right">
               <p className="text-sm font-medium text-slate-900">
                 {session.usuario.nombre || session.usuario.email}
               </p>
-              <p className="text-xs text-slate-500">{roleLabel(session.usuario.rol)}</p>
+
+              <p className="text-xs text-slate-500">
+                {roleLabel(session.usuario.rol)}
+              </p>
             </div>
+
             <div className="grid h-9 w-9 place-items-center rounded-full bg-brand-100 text-sm font-semibold text-brand-800">
-              {initials(session.usuario.nombre || session.usuario.email)}
+              {initials(
+                session.usuario.nombre || session.usuario.email
+              )}
             </div>
+
             <button
               onClick={logout}
               disabled={loggingOut}
@@ -202,6 +329,7 @@ export function AppShell() {
             {unavailable}
           </div>
         )}
+
         {session.usuario.modo_solo_lectura_comercial && (
           <div className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-sm text-amber-800">
             Acceso limitado a solo lectura por estado comercial de la institución.
@@ -211,6 +339,7 @@ export function AppShell() {
         <main className="flex-1 px-6 py-8">
           <div className="mx-auto max-w-6xl">
             <ContextoHistorico session={session} />
+
             {current.clave === "inicio" ? (
               <InicioModule
                 key={`${session.contexto.institucion?.id}-${session.contexto.departamento?.id}-${session.contexto.vista}`}
@@ -218,7 +347,10 @@ export function AppShell() {
                 onNavigate={selectModule}
               />
             ) : current.clave === "consolidado" ? (
-              <ConsolidadoModule key={`${session.contexto.institucion?.id}`} onAuthError={handleError} />
+              <ConsolidadoModule
+                key={`${session.contexto.institucion?.id}`}
+                onAuthError={handleError}
+              />
             ) : current.clave === "periodos" ? (
               <PeriodosModule
                 key={`${session.contexto.institucion?.id}-${session.contexto.departamento?.id}`}
@@ -280,37 +412,101 @@ export function AppShell() {
                 onAuthError={handleError}
               />
             ) : current.clave === "materias" ? (
-              <MateriasModule key={`${session.contexto.institucion?.id}`} onAuthError={handleError} />
+              <MateriasModule
+                key={`${session.contexto.institucion?.id}`}
+                onAuthError={handleError}
+              />
             ) : current.clave === "administracion_saas" ? (
-              <SaasModule onAuthError={handleError} />
+              <SaasModule
+                onAuthError={handleError}
+              />
             ) : (
               <ModulePlaceholder modulo={current} />
             )}
           </div>
         </main>
 
-        <MobileNav session={session} active={current.clave} onSelect={selectModule} />
+        <MobileNav
+          session={session}
+          active={current.clave}
+          onSelect={selectModule}
+        />
       </div>
     </div>
   );
 }
 
-function ModulePlaceholder({ modulo }: { modulo: Modulo }) {
+function SidebarButton({
+  modulo,
+  active,
+  onSelect,
+}: {
+  modulo: Modulo;
+  active: boolean;
+  onSelect: (clave: string) => void;
+}) {
+  return (
+    <button
+      onClick={() => onSelect(modulo.clave)}
+      aria-current={active ? "page" : undefined}
+      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition ${
+        active
+          ? "bg-white/10 font-medium text-white"
+          : "text-brand-100/75 hover:bg-white/5 hover:text-white"
+      }`}
+    >
+      <ModuleBadge
+        nombre={modulo.nombre}
+        active={active}
+      />
+
+      <span className="truncate">
+        {modulo.nombre}
+      </span>
+    </button>
+  );
+}
+
+function ModulePlaceholder({
+  modulo,
+}: {
+  modulo: Modulo;
+}) {
   return (
     <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-8 py-16 text-center">
       <div className="mx-auto mb-4 w-fit">
-        <ModuleBadge nombre={modulo.nombre} light />
+        <ModuleBadge
+          nombre={modulo.nombre}
+          light
+        />
       </div>
-      <h2 className="text-xl font-semibold text-brand-950">{modulo.nombre}</h2>
+
+      <h2 className="text-xl font-semibold text-brand-950">
+        {modulo.nombre}
+      </h2>
+
       <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
-        Este módulo todavía no está disponible en DEPTIT NEXT. Se migrará en un próximo bloque
-        conservando el funcionamiento del sistema certificado.
+        Este módulo todavía no está disponible en DEPTIT NEXT. Se migrará en un próximo bloque conservando el funcionamiento del sistema certificado.
       </p>
+
       <div className="mt-5 flex justify-center gap-2">
-        <Chip tone={modulo.puede_escribir ? "green" : "slate"}>
-          {modulo.puede_escribir ? "Tu rol puede editar" : "Tu rol puede consultar"}
+        <Chip
+          tone={
+            modulo.puede_escribir
+              ? "green"
+              : "slate"
+          }
+        >
+          {modulo.puede_escribir
+            ? "Tu rol puede editar"
+            : "Tu rol puede consultar"}
         </Chip>
-        {modulo.puede_borrar && <Chip tone="amber">Tu rol puede borrar</Chip>}
+
+        {modulo.puede_borrar && (
+          <Chip tone="amber">
+            Tu rol puede borrar
+          </Chip>
+        )}
       </div>
     </div>
   );
@@ -344,33 +540,57 @@ function MobileNav({
   );
 }
 
-function Chip({ children, tone }: { children: React.ReactNode; tone: "slate" | "green" | "amber" }) {
+function Chip({
+  children,
+  tone,
+}: {
+  children: React.ReactNode;
+  tone: "slate" | "green" | "amber";
+}) {
   const tones = {
     slate: "bg-slate-100 text-slate-600",
     green: "bg-emerald-50 text-emerald-700",
     amber: "bg-amber-50 text-amber-700",
   };
+
   return (
-    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${tones[tone]}`}>
+    <span
+      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${tones[tone]}`}
+    >
       {children}
     </span>
   );
 }
 
-function ModuleBadge({ nombre, active, light }: { nombre: string; active?: boolean; light?: boolean }) {
+function ModuleBadge({
+  nombre,
+  active,
+  light,
+}: {
+  nombre: string;
+  active?: boolean;
+  light?: boolean;
+}) {
   const cls = light
     ? "bg-brand-50 text-brand-700"
     : active
       ? "bg-brand-500 text-white"
       : "bg-white/10 text-brand-100";
+
   return (
-    <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md text-[11px] font-semibold ${cls}`}>
+    <span
+      className={`grid h-7 w-7 shrink-0 place-items-center rounded-md text-[11px] font-semibold ${cls}`}
+    >
       {initials(nombre)}
     </span>
   );
 }
 
-function CenteredMessage({ children }: { children: React.ReactNode }) {
+function CenteredMessage({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
       {children}
@@ -381,7 +601,11 @@ function CenteredMessage({ children }: { children: React.ReactNode }) {
 function initials(text: string) {
   return text
     .split(/\s+/)
-    .filter((w) => w.length > 2 || /^[A-ZÁÉÍÓÚ]/.test(w))
+    .filter(
+      (w) =>
+        w.length > 2 ||
+        /^[A-ZÁÉÍÓÚ]/.test(w)
+    )
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase())
     .join("");
