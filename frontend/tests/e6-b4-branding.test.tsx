@@ -1,6 +1,7 @@
-// 6A-B4 (R-B3-10, actualizado): la instalación pertenece a la Universidad Nacional del Oeste, por lo que el login y la
-// metadata llevan el branding institucional (nombre y logo). Dentro del sistema el encabezado es la institución ACTIVA
-// que entrega el backend y se actualiza al cambiar de contexto.
+// 6A-B4 (R-B3-10): antes del login el branding es neutro (ninguna universidad); dentro del sistema el encabezado es la
+// institución ACTIVA que entrega el backend y se actualiza al cambiar de contexto.
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { Session } from "@/lib/auth";
@@ -54,14 +55,57 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test("login y metadata con branding institucional UNO", () => {
-  expect(metadata.title).toBe("DEPTIT NEXT — Universidad Nacional del Oeste");
-  expect(metadata.description).toContain(UNO);
+const LOGO = "/branding/deptit-logo-completo.png";
+const ICONO = "/branding/deptit-icono.png";
+const PUBLIC_DIR = join(__dirname, "..", "public");
+const SRC_DIR = join(__dirname, "..", "src");
+
+const srcs = (root: ParentNode) => Array.from(root.querySelectorAll("img")).map((i) => i.getAttribute("src") ?? "");
+
+test("metadata neutra: DEPTIT sin institución fija, es-AR e isotipo como favicon", () => {
+  expect(metadata.title).toBe("DEPTIT — Gestión académica");
+  expect(metadata.applicationName).toBe("DEPTIT");
+  expect(JSON.stringify(metadata)).not.toMatch(/Universidad|UNO|DEPTIT NEXT/);
+  expect(JSON.stringify(metadata.icons)).toContain(ICONO);
+  expect(readFileSync(join(SRC_DIR, "app", "layout.tsx"), "utf-8")).toContain('lang="es-AR"');
+});
+
+test("login neutro: logo completo DEPTIT, ninguna universidad ni logo institucional", () => {
   render(<LoginPage />);
-  // El login muestra el nombre institucional (el logo se expone por alt) y el nombre del sistema.
-  expect(screen.getAllByText(new RegExp(UNO)).length).toBeGreaterThan(0);
-  expect(screen.getAllByText(/DEPTIT NEXT/).length).toBeGreaterThan(0);
-  expect(screen.getAllByAltText(UNO).length).toBeGreaterThan(0);
+  expect(document.body.textContent).not.toMatch(/Universidad|Oeste|DEPTIT NEXT/);
+  const imgs = srcs(document.body);
+  expect(imgs.length).toBeGreaterThan(0);
+  expect(imgs.every((s) => s === LOGO)).toBe(true);
+  expect(screen.getAllByAltText("DEPTIT — Gestión académica").length).toBeGreaterThan(0);
+  // el logo ya contiene el nombre: no se repite "DEPTIT" como texto en el login
+  expect(document.body.textContent).not.toMatch(/DEPTIT/);
+});
+
+test("sidebar usa el isotipo DEPTIT (no el logo completo) y ninguna institución fija", async () => {
+  actual = sesion("", null);
+  render(<AppShell />);
+  await screen.findByText("Módulo Inicio");
+  const aside = document.querySelector("aside")!;
+  expect(srcs(aside)).toEqual([ICONO]);
+  expect(document.body.textContent).not.toMatch(/Universidad|DEPTIT NEXT/);
+});
+
+test("assets DEPTIT existen en public/ (servibles) y no queda branding UNO en el código", () => {
+  for (const asset of [LOGO, ICONO]) {
+    const file = join(PUBLIC_DIR, asset);
+    expect(existsSync(file), asset).toBe(true);
+    // firma PNG
+    expect(readFileSync(file).subarray(0, 8).toString("hex")).toBe("89504e470d0a1a0a");
+  }
+  expect(existsSync(join(PUBLIC_DIR, "uno-logo-web.png"))).toBe(false);
+  const walk = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(join(dir, e.name)) : /\.(tsx?|css)$/.test(e.name) ? [join(dir, e.name)] : [],
+    );
+  for (const f of walk(SRC_DIR)) {
+    const txt = readFileSync(f, "utf-8");
+    expect(txt, f).not.toMatch(/Universidad Nacional del Oeste|uno-logo|UnoLogo|#009cd1/i);
+  }
 });
 
 test("encabezado = institución activa; UNO → Prueba → UNO sin arrastre; sin institución activa, ningún nombre", async () => {

@@ -1,6 +1,6 @@
 // @vitest-environment node
 // 6A-B1: el redirect optimista del proxy cubre las rutas de la aplicación, pero no los recursos estáticos.
-// El logo institucional de /public se sirve en el login (sin cookie), igual que el favicon y los assets de Next.
+// Los logos DEPTIT de /public/branding se sirven en el login (sin cookie), igual que el favicon y los assets de Next.
 import { describe, expect, it } from "vitest";
 import { config } from "@/proxy";
 
@@ -20,7 +20,8 @@ describe("matcher del proxy", () => {
       "/_next/static/chunks/main.js",
       "/_next/image",
       "/favicon.ico",
-      "/uno-logo-web.png",
+      "/branding/deptit-logo-completo.png",
+      "/branding/deptit-icono.png",
     ]) {
       expect(matcher.test(ruta), ruta).toBe(false);
     }
